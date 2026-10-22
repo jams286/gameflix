@@ -1,0 +1,4 @@
+__pycache__/
+*.db
+# EmulatorJS se baja con herramientas/traer-emulatorjs.sh (no va en git)
+web/emulatorjs/
