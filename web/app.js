@@ -107,6 +107,11 @@
 
   function avisar(texto) {
     const aviso = $("aviso");
+    // Un diálogo abierto queda encima de todo (incluido su oscurecido): el aviso va dentro de él
+    // para que no salga tapado. Sin diálogo, vuelve a la página.
+    const dialogo = document.querySelector("dialog[open]");
+    const destino = dialogo || document.body;
+    if (aviso.parentElement !== destino) destino.append(aviso);
     aviso.textContent = texto;
     aviso.hidden = false;
     clearTimeout(temporizadorAviso);
