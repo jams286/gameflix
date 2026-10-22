@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Gameflix</title>
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="pagina-jugar">
+  <header class="jugar-barra">
+    <button type="button" class="jugar-salir" id="salir">‹ Salir</button>
+    <span class="jugar-titulo" id="titulo"></span>
+    <span class="jugar-sync" id="sync" data-estado="nada"></span>
+  </header>
+
+  <div class="jugar-zona">
+    <div id="juego"></div>
+  </div>
+
+  <p class="error-general" id="error" hidden></p>
+
+  <!-- Elegir ranura para guardar o cargar un estado -->
+  <dialog class="dialogo" id="dialogo-ranuras">
+    <h2 id="ranuras-titulo">Guardar estado</h2>
+    <div class="ranuras" id="ranuras"></div>
+    <div class="acciones">
+      <button type="button" class="boton" id="ranuras-cancelar">Cancelar</button>
+    </div>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" hidden></div>
+
+  <script src="jugar.js"></script>
+</body>
+</html>

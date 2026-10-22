@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0e12">
+  <title>Gameflix</title>
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="barra" id="barra" hidden>
+    <a class="logo" href="#catalogo">Gameflix</a>
+    <nav class="barra-acciones">
+      <a class="barra-enlace" id="enlace-admin" href="#admin" hidden>Administrar</a>
+      <button type="button" class="barra-perfil" id="boton-perfil" aria-haspopup="true" aria-expanded="false">
+        <span class="avatar avatar-chico" id="avatar-actual"></span>
+      </button>
+    </nav>
+    <div class="menu-perfil" id="menu-perfil" hidden>
+      <p class="menu-nombre" id="menu-nombre"></p>
+      <a href="#admin" id="menu-admin" hidden>Administrar Gameflix</a>
+      <button type="button" id="cambiar-perfil">Cambiar de perfil</button>
+    </div>
+  </header>
+
+  <p class="error-general" id="error" hidden></p>
+
+  <!-- ¿Quién está jugando? -->
+  <section class="vista vista-perfiles" id="vista-perfiles" hidden>
+    <span class="logo logo-grande">Gameflix</span>
+    <h1>¿Quién está jugando?</h1>
+    <div class="perfiles" id="lista-perfiles"></div>
+  </section>
+
+  <!-- Catálogo del perfil -->
+  <main class="vista vista-catalogo" id="vista-catalogo" hidden>
+    <section class="destacado" id="destacado"></section>
+    <div id="filas"></div>
+    <section class="vacio-catalogo" id="catalogo-vacio" hidden>
+      <p class="vacio-icono" aria-hidden="true">🕹️</p>
+      <h2>Todavía no hay juegos</h2>
+      <p id="catalogo-vacio-texto">Pídele al admin que suba los primeros.</p>
+      <a class="boton boton-principal" href="#admin" id="catalogo-vacio-admin" hidden>Subir juegos</a>
+    </section>
+  </main>
+
+  <!-- Administración -->
+  <main class="vista vista-admin" id="vista-admin" hidden>
+    <a class="volver" href="#catalogo">‹ Volver a los juegos</a>
+    <h1>Administrar</h1>
+
+    <section class="panel">
+      <div class="panel-cabeza">
+        <h2>Juegos</h2>
+        <label class="boton boton-principal">
+          + Agregar juegos
+          <input type="file" id="archivos-roms" multiple hidden
+                 accept=".nes,.sfc,.smc,.gb,.gbc,.gba,.zip">
+        </label>
+      </div>
+      <p class="ayuda">ROMs de NES (.nes), Super Nintendo (.sfc, .smc), Game Boy (.gb), Game Boy Color (.gbc) y Game Boy Advance (.gba), sueltas o en .zip. La consola se reconoce sola.</p>
+      <ul class="subidas" id="subidas"></ul>
+      <div id="admin-juegos"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-cabeza">
+        <h2>Perfiles</h2>
+        <button type="button" class="boton" id="nuevo-perfil">+ Agregar perfil</button>
+      </div>
+      <ul class="lista-admin" id="admin-perfiles"></ul>
+    </section>
+  </main>
+
+  <!-- PIN de un perfil -->
+  <dialog class="dialogo dialogo-pin" id="dialogo-pin">
+    <form method="dialog" id="form-pin">
+      <span class="avatar avatar-mediano" id="pin-avatar"></span>
+      <h2 id="pin-titulo">Escribe tu PIN</h2>
+      <input type="password" id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+             autocomplete="off" aria-label="PIN" required>
+      <p class="error-dialogo" id="pin-error" hidden></p>
+      <div class="acciones">
+        <button type="button" class="boton" value="cancelar" data-cerrar>Cancelar</button>
+        <button type="submit" class="boton boton-principal">Entrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Detalle de un juego -->
+  <dialog class="dialogo dialogo-juego" id="dialogo-juego">
+    <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    <div class="detalle" id="detalle"></div>
+  </dialog>
+
+  <!-- Editar juego (admin) -->
+  <dialog class="dialogo" id="dialogo-editar-juego">
+    <form id="form-juego">
+      <h2>Editar juego</h2>
+      <label class="campo">Título
+        <input type="text" id="juego-titulo" maxlength="60" required>
+      </label>
+      <label class="campo" id="campo-consola">Consola
+        <select id="juego-consola">
+          <option value="gb">Game Boy</option>
+          <option value="gbc">Game Boy Color</option>
+        </select>
+      </label>
+      <div class="campo">Carátula
+        <div class="caratula-editar">
+          <div id="juego-vista"></div>
+          <div class="caratula-botones">
+            <label class="boton">
+              Subir imagen
+              <input type="file" id="archivo-caratula" accept="image/jpeg,image/png,image/webp" hidden>
+            </label>
+            <button type="button" class="boton boton-texto" id="quitar-caratula">Quitar carátula</button>
+          </div>
+        </div>
+      </div>
+      <p class="error-dialogo" id="juego-error" hidden></p>
+      <div class="acciones acciones-separadas">
+        <button type="button" class="boton boton-peligro" id="borrar-juego">Borrar juego</button>
+        <span class="acciones">
+          <button type="button" class="boton" data-cerrar>Cancelar</button>
+          <button type="submit" class="boton boton-principal">Guardar</button>
+        </span>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Crear o editar perfil (admin) -->
+  <dialog class="dialogo" id="dialogo-perfil">
+    <form id="form-perfil">
+      <h2 id="perfil-titulo">Perfil</h2>
+      <div class="perfil-vista"><span class="avatar avatar-mediano" id="perfil-vista"></span></div>
+      <label class="campo">Nombre
+        <input type="text" id="perfil-nombre" maxlength="20" required>
+      </label>
+      <div class="campo">Avatar
+        <div class="opciones-avatar" id="opciones-avatar"></div>
+      </div>
+      <div class="campo">Color
+        <div class="opciones-color" id="opciones-color"></div>
+      </div>
+      <label class="campo">PIN <small id="perfil-pin-ayuda">(opcional, de 4 a 8 números)</small>
+        <input type="password" id="perfil-pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8"
+               autocomplete="new-password" placeholder="Sin PIN">
+      </label>
+      <label class="casilla" id="campo-quitar-pin" hidden>
+        <input type="checkbox" id="perfil-quitar-pin"> Quitar el PIN
+      </label>
+      <label class="casilla">
+        <input type="checkbox" id="perfil-admin"> Puede administrar (subir juegos, editar perfiles)
+      </label>
+      <p class="error-dialogo" id="perfil-error" hidden></p>
+      <div class="acciones acciones-separadas">
+        <button type="button" class="boton boton-peligro" id="borrar-perfil">Borrar perfil</button>
+        <span class="acciones">
+          <button type="button" class="boton" data-cerrar>Cancelar</button>
+          <button type="submit" class="boton boton-principal">Guardar</button>
+        </span>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
