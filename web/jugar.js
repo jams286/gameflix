@@ -311,6 +311,45 @@
     document.body.append(script);
   }
 
+  // ---------- Audio en iPhone ----------
+  // iOS calla el audio web (el que usa el emulador) cuando el iPhone está en silencio, como si
+  // fuera un sonido de notificación. Pidiendo audio de "reproducción" suena igual que un video.
+
+  // iOS 17 o más nuevo
+  if (navigator.audioSession) {
+    try { navigator.audioSession.type = "playback"; } catch { /* no se pudo: queda el truco de abajo */ }
+  }
+
+  // iOS más viejos: un audio silencioso en bucle, iniciado con un toque, cambia la sesión a reproducción
+  function wavSilencioso() {
+    const muestras = 800;   // 0.1 s a 8 kHz, 8 bits, mono
+    const datos = new DataView(new ArrayBuffer(44 + muestras));
+    const texto = (pos, s) => [...s].forEach((c, i) => datos.setUint8(pos + i, c.charCodeAt(0)));
+    texto(0, "RIFF"); datos.setUint32(4, 36 + muestras, true); texto(8, "WAVE");
+    texto(12, "fmt "); datos.setUint32(16, 16, true); datos.setUint16(20, 1, true); datos.setUint16(22, 1, true);
+    datos.setUint32(24, 8000, true); datos.setUint32(28, 8000, true); datos.setUint16(32, 1, true);
+    datos.setUint16(34, 8, true); texto(36, "data"); datos.setUint32(40, muestras, true);
+    for (let i = 0; i < muestras; i++) datos.setUint8(44 + i, 128);   // 128 = silencio en 8 bits
+    return URL.createObjectURL(new Blob([datos.buffer], { type: "audio/wav" }));
+  }
+
+  let silencio = null;
+  function alTocar() {
+    const esIos = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);   // iPad se presenta como Mac
+    if (esIos && !navigator.audioSession && !silencio) {
+      silencio = new Audio(wavSilencioso());
+      silencio.loop = true;
+      silencio.setAttribute("playsinline", "");
+      silencio.play().catch(() => { silencio = null; });   // se reintenta en el próximo toque
+    }
+    // Si iOS dejó el audio en pausa (p. ej. al volver de otra app), se reanuda con el toque
+    const ctx = window.EJS_emulator?.Module?.AL?.currentCtx?.audioCtx;
+    if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
+  }
+  document.addEventListener("touchend", alTocar, true);
+  document.addEventListener("click", alTocar, true);
+
   // ---------- Salir ----------
 
   async function salir() {

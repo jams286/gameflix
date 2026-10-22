@@ -23,6 +23,7 @@ Juegos retro (NES, SNES, GB, GBC, GBA) en el navegador con perfiles tipo Netflix
 - Límites: ROM 38 MB (nginx corta en 40 MB), save 1 MB, estado 12 MB, carátula 3 MB.
 - `web/`: HTML/CSS/JS sin frameworks, tema oscuro, Bebas Neue para el logo y títulos, Atkinson Hyperlegible para el texto. `app.js` usa el hash para la vista (`#perfiles`, `#catalogo`, `#admin`). Rutas relativas para funcionar bajo `/gameflix/`.
 - EmulatorJS se carga desde `web/emulatorjs/` (sin CDN). Las rutas relativas que se le pasan (`EJS_backgroundImage`) las antepone con su carpeta: por eso la carátula de fondo va como URL absoluta. El gamepad táctil aparece cuando el botón "▶ Jugar" se toca con el dedo en un navegador con user agent de celular.
+- Audio en iOS: Safari calla el audio web cuando el iPhone está en silencio. `jugar.js` pone `navigator.audioSession.type = "playback"` (iOS 17+) y, en iOS más viejos, al primer toque reproduce en bucle un WAV silencioso generado en JS (cambia la sesión a reproducción). Cada toque reanuda el `AudioContext` del emulador si quedó pausado (al volver de otra app). Confirmado por Jams: sin esto, en modo silencio no sonaba.
 - No hacen falta los headers COOP/COEP: estos núcleos no usan hilos (`EJS_threads` apagado).
 
 ## Pruebas
