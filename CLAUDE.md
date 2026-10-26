@@ -37,3 +37,11 @@ Juegos retro (NES, SNES, GB, GBC, GBA) en el navegador con perfiles tipo Netflix
 - API: nginx publica `/gameflix/api/` → `127.0.0.1:8777/api/` (config en `infra/nginx`, cuerpo hasta 40 MB).
 - Servicio systemd de usuario `gameflix.service` (copia en `servicio/`).
 - Ícono del hub: `infra/home/iconos/gameflix.svg` (copia de `web/favicon.svg`).
+
+## Memoria (movida de la memoria global el 2026-10-25)
+
+- **Estado al 2026-10-22:** probado en celular e iPhone, funciona. Perfiles: Jams (admin, con PIN) y Victor (sin PIN).
+- **No tocar / no proponer:** lo de xdg-desktop-portal-gtk (lo ve Jams aparte); limpiar ROMs borradas de la carpeta espejo del respaldo (decidió dejarlo así).
+- **Ideas abiertas:** al retomar, preguntar si sigue con la tele o con el juego propio.
+  - Juego propio de GB/NES (se sugirió GB Studio, GBDK o ensamblador 6502).
+  - Tele Samsung (Tizen, modo desarrollador activo) con control USB. Falta que Jams diga modelo/año y qué control. Plan propuesto: empezar por `/gameflix/tele.html` (diagnóstico de WASM/WebGL/Gamepad y botones). Opción 1: navegador de la tele (dudas: CA casera, rendimiento SNES/GBA, Gamepad API). Opción 2: app `.wgt` que abre la URL, firmada con certificado de Samsung (cuenta + DUID), con `sdb connect` + `tizen install` (Host PC IP 192.168.1.4) y navegación con flechas y foco. No se ha construido nada.
