@@ -1,5 +1,7 @@
 # gameflix (casa)
 
+Tracker: gameflix
+
 Juegos retro (NES, SNES, GB, GBC, GBA) en el navegador con perfiles tipo Netflix y partidas guardadas en el servidor por perfil. Entra desde el hub `infra/home`. Comandos en el README.
 
 ## Qué hace
