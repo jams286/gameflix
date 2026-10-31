@@ -47,3 +47,8 @@ Juegos retro (NES, SNES, GB, GBC, GBA) en el navegador con perfiles tipo Netflix
 - **Ideas abiertas:** al retomar, preguntar si sigue con la tele o con el juego propio.
   - Juego propio de GB/NES (se sugirió GB Studio, GBDK o ensamblador 6502).
   - Tele Samsung (Tizen, modo desarrollador activo) con control USB. Falta que Jams diga modelo/año y qué control. Plan propuesto: empezar por `/gameflix/tele.html` (diagnóstico de WASM/WebGL/Gamepad y botones). Opción 1: navegador de la tele (dudas: CA casera, rendimiento SNES/GBA, Gamepad API). Opción 2: app `.wgt` que abre la URL, firmada con certificado de Samsung (cuenta + DUID), con `sdb connect` + `tizen install` (Host PC IP 192.168.1.4) y navegación con flechas y foco. No se ha construido nada.
+
+## Videos (2026-10-31)
+
+- `video/`: dos reels verticales (A "El cartucho", B "Empiezo aquí, sigo allá") con perfiles inventados y The Hat Chooses the Wizard. Cómo regenerarlos en `video/README.md`; usa la copia de demo de `infra/home/video/capturas/demo.py`. Finales en `/media/datos/Videos/`.
+- Grabar el emulador: video de Playwright a 1× (con zoom CSS el canvas sale negro); perfil sin estados para que el diálogo de ranuras no pida confirmar.

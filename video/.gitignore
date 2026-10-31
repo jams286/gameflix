@@ -1,0 +1,9 @@
+*.mp4
+*.render.json
+render.log
+musica/*.mp3
+__pycache__/
+_frames/
+capturas/png/
+capturas/frames/
+capturas/footage/

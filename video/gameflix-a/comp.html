@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Gameflix A · El cartucho</title>
+<!-- Concepto: el cartucho es el protagonista. Eliges perfil, bajas por las filas de cartuchos, uno se sale de la
+     página, gira en el aire y la cámara entra por su etiqueta: la etiqueta es la misma escena con la que arranca
+     el juego. Se juega, se guarda la partida en una ranura, y cierra la marca. Material: capturas y footage reales. -->
+<script src="../fuentes/fuentes.js"></script>
+<style>
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#0a0a0c}
+body{font-family:Atkinson,system-ui,sans-serif;color:#fff}
+#stage{position:absolute;inset:0;overflow:hidden;background:#141414}
+#glow{position:absolute;inset:0;background:radial-gradient(ellipse 70% 40% at 50% 62%,rgba(229,9,20,.28),rgba(0,0,0,0) 70%),#0a0a0c}
+#world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.pg{position:absolute;left:0;top:0;width:390px;transform-origin:0 0}
+.pg img{position:absolute;display:block}
+#dim{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 46%,rgba(30,8,10,.72),rgba(0,0,0,.94))}
+#cart{position:absolute;left:0;top:0;transform-origin:50% 50%;will-change:transform}
+#cart img{display:block;width:100%;height:100%}
+#cartwrap{position:absolute;inset:0;perspective:1800px}
+#play{position:absolute;left:0;top:0;width:1080px;height:1920px;background:#000;overflow:hidden}
+#play img{position:absolute;display:block}
+.touch{position:absolute;left:0;top:0;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;
+  background:rgba(255,255,255,.9);box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 0 3px rgba(0,0,0,.1)}
+.ripple{position:absolute;left:0;top:0;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;border:5px solid rgba(255,255,255,.95)}
+#logo{position:absolute;left:0;top:0;width:1080px;text-align:center;font-family:Bebas;font-size:250px;line-height:1;color:#e50914;letter-spacing:.01em;
+  text-shadow:0 14px 60px rgba(229,9,20,.35)}
+#logo span{display:inline-block;transform-origin:50% 90%}
+#tag{position:absolute;left:0;width:1080px;text-align:center;font-size:52px;font-weight:700}
+#tag2{position:absolute;left:0;width:1080px;text-align:center;font-size:38px;color:#b3b3b3}
+#credit{position:absolute;left:0;bottom:40px;width:1080px;text-align:center;font-size:24px;color:rgba(255,255,255,.4)}
+#hud{position:absolute;right:14px;bottom:10px;font:20px monospace;color:#f66;display:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="world">
+    <div id="perfiles" class="pg"></div>
+    <div id="catalogo" class="pg"></div>
+  </div>
+  <div id="dim"></div>
+  <div id="cartwrap"><div id="cart"><img src="../capturas/png/cartucho_12.png" alt=""></div></div>
+  <div id="glow"></div>
+  <div id="play"></div>
+  <div id="logo"></div>
+  <div id="tag">Juegos libres en casa</div>
+  <div id="tag2">tu partida se queda guardada en tu perfil</div>
+  <div id="credit"></div>
+  <div id="hud"></div>
+</div>
+<script src="motion.js"></script>
+<script src="../capturas/png/gf.js"></script>
+<script>
+const W=1080, H=1920, DUR=17, P='../capturas/png/', FR='../capturas/frames/cel/';
+window.__meta={dur:DUR,fps:30,w:W,h:H, inFrame:{}};
+const MUSICA='Música: “Pixel Peeker Polka (faster)” · Kevin MacLeod (incompetech.com) · CC BY 4.0';
+const {clamp,lerp,sstep,ssstep,seg,ease}=OM;
+const K=1080/390;                                  // px CSS del celular → px del video (ancho completo)
+// ── timeline ──
+const LOGO0=0.35, TITLE0=1.05, AV0=1.35, TAP_ANA=2.55, TO_CAT=2.75, CAT_SET=3.35;
+const FLICK=[[3.55,4.15,1500],[4.35,5.05,3470]];   // [t0,t1,scroll final en px]
+const TAP_CART=5.4, LIFT0=5.5, LIFT1=6.15, DIVE0=7.05, DIVE1=7.7;
+const JUGAR_TAP=8.05, PLAY0=8.3, TAP_GAME=11.3, TAP_MENU=12.0, TAP_SLOT=12.7, END0=14.0;
+// footage del celular (frames/cel, 30 fps): tramos [t0, t1, frame0, frame1] — se saltan los tiempos muertos
+const SEGS=[[8.3,11.3,20,110],[11.3,11.5,368,374],[11.5,12.1,376,394],[12.1,12.8,405,426],[12.8,13.0,449,455],[13.0,14.4,487,529]];
+const R1=JSON.parse('{"x":89.7,"y":421}');
+// ── piezas medidas ──
+const LOGO_R={x:105,y:197,w:178,h:46}, TITLE_R={x:66,y:270,w:258,h:34};
+const CART={...GF.cartuchos[12], x:264.5};                        // The Hat Chooses the Wizard (fila GBA)
+const ANA=GF.perfiles[0], CAT_AV={x:362,y:5,w:28,h:28};
+
+const $=id=>document.getElementById(id);
+const mk=(tag,cls,parent,css)=>{const e=document.createElement(tag); if(cls)e.className=cls; if(css)Object.assign(e.style,css); parent.appendChild(e); return e;};
+function crop(parent,src,r,full){ // un recorte de una captura: div con overflow y la imagen corrida
+  const d=mk('div','',parent,{position:'absolute',left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px',overflow:'hidden'});
+  const i=mk('img','',d,{left:(-r.x)+'px',top:(-r.y)+'px',width:full.w+'px',height:full.h+'px'}); i.src=src; return d; }
+const E={}; const FRAMES={};
+function build(){
+  $('credit').textContent=MUSICA;
+  const per=$('perfiles'), cat=$('catalogo'); per.style.transform=cat.style.transform=`scale(${K})`;
+  E.logo=crop(per,P+'perfiles.png',LOGO_R,{w:390,h:844}); E.title=crop(per,P+'perfiles.png',TITLE_R,{w:390,h:844});
+  E.av=GF.perfiles.map((r,i)=>{ const e=mk('img','',per,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px',transformOrigin:'50% 40%'}); e.src=P+`perfil_${i}.png`; return e; });
+  E.page=mk('img','',cat,{left:'0px',top:'0px',width:'390px',height:GF.largo+'px'}); E.page.src=P+'catalogo_largo.png';
+  E.hole=mk('div','',cat,{position:'absolute',left:CART.x+'px',top:CART.y+'px',width:CART.w+'px',height:CART.h+'px',background:'#141414'});
+  E.anaCat=mk('img','',cat,{left:CAT_AV.x+'px',top:CAT_AV.y+'px',width:CAT_AV.w+'px',height:CAT_AV.h+'px'}); E.anaCat.src=P+'perfil_0.png';
+  // juego: celular a pantalla completa (alto completo, 887 de ancho)
+  const pl=$('play'); const PW=1920*390/844; E.PW=PW;
+  E.jugar=mk('img','',pl,{left:((W-PW)/2)+'px',top:'0px',width:PW+'px',height:'1920px'}); E.jugar.src=P+'jugar.png';
+  E.frame=mk('img','',pl,{left:((W-PW)/2)+'px',top:'0px',width:PW+'px',height:'1920px'});
+  E.touch=mk('div','touch',$('stage')); E.touch.id='touch'; E.ripple=mk('div','ripple',$('stage')); E.ripple.id='ripple';
+  $('logo').innerHTML=[...'GAMEFLIX'].map(c=>`<span>${c}</span>`).join('');
+  $('stage').appendChild($('hud'));
+}
+// ── cámara: perfiles y catálogo viven en el mismo plano; el catálogo se desliza con dos "flicks" del dedo ──
+function scrollAt(t){ let y=0; for(const [a,b,v] of FLICK){ if(t>=a) y=lerp(y,v,ease.expoOut(seg(t,a,b))); } return y; }
+function camAt(t){ const sy=scrollAt(t); const s=OM.shake(t,TAP_CART,{amp:5,decay:12,seed:3}); const z=1+0.05*sstep(LIFT0,LIFT1,t)*0;
+  return {x:540+s.x, y:960+sy+s.y, zoom:z, rot:0}; }
+const M2=m=>`matrix(${m.map(v=>v.toFixed(5)).join(',')})`;
+const toScr=(cam,xcss,ycss)=>OM.project(OM.view(cam,{W,H}),xcss*K,ycss*K);
+let cur='';
+function frameSrc(n){ return FR+String(Math.max(1,Math.min(556,n))).padStart(4,'0')+'.jpg'; }
+
+// tap: el dedo entra, toca, sale
+function touchAt(t,list){ for(const [tc,x,y] of list){ if(t>=tc-0.4&&t<tc+0.4){ const k=ease.expoOut(seg(t,tc-0.4,tc-0.05)); const p=OM.press(t,tc,{depth:0.25});
+  const op=sstep(tc-0.4,tc-0.3,t)*(1-sstep(tc+0.25,tc+0.4,t)); return {x:lerp(x+110,x,k),y:lerp(y+220,y,k),s:p.s*(t>=tc&&t<tc+0.12?0.86:1),op,tc,x0:x,y0:y}; } } return null; }
+
+function seek(t){
+  const pending=[];
+  const cam=camAt(t); $('world').style.transform=M2(OM.view(cam,{W,H}));
+  // 1 · perfiles
+  const toCat=ease.expoInOut(seg(t,TO_CAT,CAT_SET));
+  { const L=E.logo; [...'x'].length;
+    const w=OM.wordRise(t,LOGO0,{dist:30,s0:0.8,ds:0.2}); L.style.opacity=w.op*(1-toCat); L.style.transform=`translateY(${w.y}px) scale(${w.s})`; L.style.transformOrigin='50% 50%';
+    const w2=OM.wordRise(t,TITLE0,{dist:16}); E.title.style.opacity=w2.op*(1-toCat); E.title.style.transform=`translateY(${w2.y}px)`;
+    E.av.forEach((e,i)=>{ const p=OM.popIn(t,AV0+i*0.11,{rise:26,s0:0.7,ds:0.3,zeta:0.55,omega:20}); let op=p.op, s=p.s, x=0, y=p.dy;
+      if(i===0){ const pr=OM.press(t,TAP_ANA,{depth:0.12}); s*=pr.s; // Ana viaja a la esquina del catálogo
+        const r=OM.morphRect(t,TO_CAT,CAT_SET,{x:ANA.x,y:ANA.y,w:ANA.w,h:ANA.h},{x:CAT_AV.x,y:CAT_AV.y,w:CAT_AV.w,h:CAT_AV.w*143/112},{curve:ease.expoInOut});
+        Object.assign(e.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'}); op=t<CAT_SET?op:0; }
+      else { const o=OM.liftOut(t,TO_CAT,{dur:0.3,dist:40,blur:0}); op*=o.op; y+=o.dy; }
+      e.style.opacity=op; e.style.transform=`translate(${x}px,${y}px) scale(${s})`; }); }
+  $('world').style.visibility=t<DIVE1+0.1?'visible':'hidden';
+  // 2 · catálogo: sube desde abajo mientras Ana llega a su esquina
+  { const p=seg(t,TO_CAT,CAT_SET), k=ease.expoOut(p); $('catalogo').style.opacity=t>=TO_CAT?Math.min(1,p*2.2):0;
+    $('catalogo').style.transform=`translateY(${((1-k)*260).toFixed(1)}px) scale(${K})`; E.anaCat.style.opacity=t>=CAT_SET?1:0;
+    E.hole.style.opacity=t>=LIFT0?1:0; }
+  // 3 · el cartucho se sale de la página y gira en el aire
+  { const vis=t>=LIFT0&&t<DIVE1+0.05; $('cart').style.display=vis?'':'none'; $('dim').style.opacity=(sstep(LIFT0,LIFT1,t)*(t<PLAY0?1:0)).toFixed(3);
+    if(vis){ const [sx,sy]=toScr(cam,CART.x,CART.y); const A={x:sx,y:sy,w:CART.w*K,h:CART.h*K};
+      const bw=980, B={x:(W-bw)/2,y:880-bw*CART.h/CART.w/2,w:bw,h:bw*CART.h/CART.w};
+      const r=OM.morphRect(t,LIFT0,LIFT1,A,B,{spring:{zeta:0.62,omega:11}});
+      const turn=lerp(-26,14,ease.sineInOut(seg(t,LIFT0,DIVE0))), tilt=lerp(14,-4,ease.sineInOut(seg(t,LIFT0,DIVE0)));
+      const fl=Math.sin((t-LIFT0)*2.2)*10*sstep(LIFT0,LIFT1,t)*(1-sstep(DIVE0-0.2,DIVE0,t));
+      // zambullida: la cámara entra por la etiqueta (la etiqueta ocupa ~8–92 % de ancho, 10–64 % de alto)
+      const lab={x:B.x+0.08*B.w,y:B.y+0.10*B.h,w:0.84*B.w,h:0.54*B.h};
+      const z=OM.zoomThrough(t,DIVE0,DIVE1,lab,{W,H,fit:'contain'});
+      const flat=sstep(DIVE0-0.15,DIVE0+0.1,t);
+      $('cart').style.left=r.x+'px'; $('cart').style.top=r.y+'px'; $('cart').style.width=r.w+'px'; $('cart').style.height=r.h+'px';
+      $('cartwrap').style.transformOrigin='0 0'; $('cartwrap').style.transform=t>=DIVE0?`matrix(${z.matrix.join(',')})`:'none';
+      $('cart').style.transform=`translateY(${fl.toFixed(1)}px) rotateY(${(turn*(1-flat)).toFixed(2)}deg) rotateX(${(tilt*(1-flat)).toFixed(2)}deg)`; }
+    else { $('cartwrap').style.transform='none'; } }
+  // 4 · el juego: la etiqueta se vuelve la pantalla "Jugar", tap, gameplay, guardar en una ranura
+  { const vis=t>=DIVE1-0.12; $('play').style.opacity=vis?sstep(DIVE1-0.12,DIVE1+0.05,t):0;
+    let n=null; for(const [a,b,f0,f1] of SEGS){ if(t>=a) n=Math.round(lerp(f0,f1,seg(t,a,b))); }
+    E.jugar.style.opacity=n===null?1:0; E.frame.style.opacity=n===null?0:1;
+    if(n!==null){ const src=frameSrc(n); if(src!==cur){ cur=src; E.frame.src=src; pending.push(E.frame.decode().catch(()=>{})); } }
+    // la cámara se mete al juego después de tocar Jugar y sale al tocar el menú
+    const zin=ease.expoOut(seg(t,PLAY0-0.05,PLAY0+0.55))*(1-ease.expoInOut(seg(t,TAP_GAME-0.25,TAP_GAME+0.15)));
+    const GY=88*1920/844;                                                // centro del área de juego en pantalla
+    E.frame.style.imageRendering=zin>0.3?'pixelated':'auto';
+    // salida: el celular se encoge hacia arriba mientras cae la marca
+    const k=ease.expoInOut(seg(t,END0,END0+0.7)); $('play').style.transformOrigin=`${lerp(310,540,k).toFixed(1)}px ${GY.toFixed(1)}px`;
+    const zs=(1+0.62*zin)*(1-0.62*k);
+    $('play').style.transform=`translateY(${(zin*(760-GY)-k*120).toFixed(1)}px) scale(${zs.toFixed(4)})`; $('play').style.borderRadius=(k*120)+'px';
+    if(t>=END0) $('play').style.opacity=1-sstep(END0+1.6,END0+2.0,t); }
+  // dedo
+  { const PX=(W-E.PW)/2, s=1920/844; const L=[[TAP_ANA,...toScr(cam,ANA.x+ANA.w/2,ANA.y+60)],[TAP_CART,...toScr(camAt(TAP_CART),CART.x+CART.w/2,CART.y+CART.h/2)],
+      [JUGAR_TAP,PX+GF.jugar_boton.x*s,GF.jugar_boton.y*s],[TAP_GAME,PX+195*s,300*s],[TAP_MENU,PX+122*s,731*s],[TAP_SLOT,PX+R1.x*s,R1.y*s]];
+    const f=touchAt(t,L)||(t>=FLICK[0][0]-0.3&&t<FLICK[1][1]?flick(t):null);
+    $('touch').style.opacity=f?f.op:0; if(f) $('touch').style.transform=`translate(${f.x.toFixed(1)}px,${f.y.toFixed(1)}px) scale(${f.s.toFixed(3)})`;
+    const g=f&&f.tc!==undefined?seg(t,f.tc,f.tc+0.45):1; $('ripple').style.opacity=(f&&t>=f.tc&&g<1)?(1-g)*0.9:0;
+    if(f&&f.tc!==undefined) $('ripple').style.transform=`translate(${f.x0}px,${f.y0}px) scale(${(1+g*2.6).toFixed(3)})`; }
+  $('glow').style.opacity=sstep(END0+0.1,END0+0.8,t);
+  // marca
+  { [...$('logo').children].forEach((s,i)=>{ const d=OM.letterDrop(t,END0+0.35,i,{dist:120,stagger:0.05}); s.style.opacity=d.op; s.style.transform=`translateY(${(-d.y).toFixed(1)}px) scale(${d.sx.toFixed(4)},${d.sy.toFixed(4)})`; });
+    $('logo').style.top='1180px';
+    const a=OM.wordRise(t,END0+1.0,{dist:24}), b=OM.wordRise(t,END0+1.25,{dist:20});
+    $('tag').style.top='1450px'; $('tag').style.opacity=a.op; $('tag').style.transform=`translateY(${a.y}px)`;
+    $('tag2').style.top='1525px'; $('tag2').style.opacity=b.op; $('tag2').style.transform=`translateY(${b.y}px)`;
+    $('credit').style.opacity=sstep(END0+1.6,END0+2.1,t); }
+  $('hud').textContent='t='+t.toFixed(3);
+  return Promise.all(pending);
+}
+// los dos flicks: el dedo arrastra hacia arriba
+function flick(t){ for(const [a,b] of FLICK){ if(t>=a-0.25&&t<b){ const k=ease.expoOut(seg(t,a,a+0.3)); const op=sstep(a-0.25,a-0.12,t)*(1-sstep(a+0.25,a+0.4,t));
+  return {x:lerp(700,760,k),y:lerp(1500,700,k),s:0.92,op}; } } return null; }
+window.__motion=(t0,t1)=>{ const c0=camAt(t0),c1=camAt(t1); let d=Math.abs(c1.y-c0.y);
+  if(t1>LIFT0&&t0<DIVE1+0.1) d=Math.max(d,200); if(t1>DIVE0&&t0<DIVE1) d=Math.max(d,600); if(t1>TO_CAT&&t0<CAT_SET) d=Math.max(d,150); if(t1>END0&&t0<END0+0.8) d=Math.max(d,180); return d; };
+window.__events=()=>({T:DUR,events:[{t:LOGO0,kind:'logo',pan:0,v:0.9},{t:AV0,kind:'pop',pan:0,v:0.5},{t:TAP_ANA,kind:'tap',pan:-0.3,v:0.8},{t:TO_CAT,kind:'whoosh',dur:0.6,pan:0,v:0.6},
+  {t:FLICK[0][0],kind:'flick',dur:0.6,pan:0,v:0.7},{t:FLICK[1][0],kind:'flick',dur:0.7,pan:0,v:0.8},{t:TAP_CART,kind:'tap',pan:0.2,v:0.8},{t:LIFT0,kind:'lift',dur:0.65,pan:0,v:0.8},
+  {t:DIVE0,kind:'dive',dur:0.65,pan:0,v:1},{t:JUGAR_TAP,kind:'tap',pan:0,v:0.9},{t:PLAY0,kind:'game',dur:TAP_GAME-PLAY0,pan:0,v:0.6},{t:TAP_GAME,kind:'tap',pan:0,v:0.5},{t:TAP_MENU,kind:'tap',pan:-0.2,v:0.6},{t:TAP_SLOT,kind:'save',pan:-0.2,v:0.9},
+  {t:END0+0.35,kind:'end',pan:0,v:1}]});
+window.__seek=async t=>{ await seek(t); return true; };
+window.__ready=window.FUENTES.then(()=>{ build(); return Promise.all([...document.images].map(i=>i.decode().catch(()=>{}))); }).then(()=>seek(0));
+const q=new URLSearchParams(location.search);
+if(q.has('t')) __ready.then(()=>seek(parseFloat(q.get('t'))));
+if(q.has('hud')) $('hud').style.display='block';
+if(q.has('play')) __ready.then(()=>{const t0=performance.now();(function loop(){seek(((performance.now()-t0)/1000)%DUR);requestAnimationFrame(loop);})();});
+</script>
+</body>
+</html>

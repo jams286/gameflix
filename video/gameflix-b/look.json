@@ -1,0 +1,7 @@
+{
+ "mood": "noche azul profunda; el cian del cielo del juego es el único acento; la partida viaja",
+ "color": {"ground": "#0b1224", "deep": "#060a16", "card": "#ffffff", "line": "#24345c", "mute": "#9fb0d6", "ink": "#f4f7ff", "accent": "#2ee6f0", "accent2": "#ffcf4a"},
+ "type": {"display": {"face": "Archivo", "weight": 800, "tracking": -0.03},
+          "text": {"face": "Inter", "weight": 500, "tracking": -0.01},
+          "mono": {"face": "Geist Mono", "weight": 400, "tracking": 0}}
+}
