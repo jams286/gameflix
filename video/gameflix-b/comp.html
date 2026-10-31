@@ -69,7 +69,7 @@ svg#path{position:absolute;left:0;top:0;overflow:visible}
 </div>
 <script src="motion.js"></script>
 <script>
-const W=1080, H=1920, DUR=15.5, FC='../capturas/frames/cel/', FT='../capturas/frames/tab/', P='../capturas/png/';
+const W=1080, H=1920, DUR=22, FC='../capturas/frames/cel/', FT='../capturas/frames/tab/', P='../capturas/png/';
 window.__meta={dur:DUR,fps:30,w:W,h:H, inFrame:{}};
 const MUSICA='Música: “Pixelland” · Kevin MacLeod (incompetech.com) · CC BY 4.0';
 const {clamp,lerp,sstep,seg,ease}=OM;
@@ -81,16 +81,16 @@ const pIn=(x,y)=>[PH.x+PH.pad+x*PS, PH.y+PH.pad+y*PS];                          
 const tIn=(x,y)=>[TB.x+TB.pad+x*TS, TB.y+TB.pad+y*TS];
 const HC=[HOUSE.x+220, HOUSE.y+300];
 // ── tiempos ──
-const TAP_GAME=3.3, TAP_MENU=3.95, TAP_SLOT=4.55, CARD0=5.25, HOP1=[5.6,6.55], HOLD_H=6.55, HOP2=[7.2,8.2], MORPH=[8.2,8.65], TAP_T=9.0, END0=12.2;
-const PSEG=[[0,3.3,40,139],[3.3,3.5,368,374],[3.5,4.0,376,391],[4.0,4.6,405,423],[4.6,4.8,449,455],[4.8,6.4,487,535]];
-const TSEG=[[8.6,9.05,30,64],[9.05,9.25,66,72],[9.25,12.3,150,241],[12.3,15.5,241,337]];
+const TAP_GAME=4.5, TAP_MENU=5.3, TAP_SLOT=6.3, CARD0=7.6, HOP1=[8.2,9.6], HOLD_H=9.6, HOP2=[10.8,12.2], MORPH=[12.2,12.7], TAP_T=13.6, END0=17.6;
+const PSEG=[[0,4.5,40,175],[4.5,4.7,368,374],[4.7,5.4,376,394],[5.4,6.4,405,426],[6.4,6.6,449,455],[6.6,8.6,487,531]];
+const TSEG=[[12.6,13.65,30,64],[13.65,13.85,66,72],[13.85,17.6,150,262],[17.6,22,262,394]];
 const KEYS=[{t:0,x:540,y:990,zoom:1.04},{t:0.8,x:540,y:1000,zoom:1},
-  {t:CARD0+0.25,x:540,y:1000,zoom:1},{t:6.15,x:1150,y:650,zoom:0.52,curve:ease.expoInOut},{t:6.75,x:HC[0],y:HC[1]-40,zoom:1.05,curve:ease.expoOut},
-  {t:HOP2[0],x:HC[0],y:HC[1]-40,zoom:1.05},{t:7.75,x:2550,y:800,zoom:0.5,curve:ease.expoInOut},{t:8.45,x:TB.x+TB.w/2,y:TB.y+TB.h/2+60,zoom:1.0,curve:ease.expoOut},
-  {t:END0,x:TB.x+TB.w/2,y:TB.y+TB.h/2+60,zoom:1.0},{t:END0+1.1,x:1850,y:1020,zoom:0.305,curve:ease.quintInOut}];
+  {t:CARD0+0.25,x:540,y:1000,zoom:1},{t:8.2,x:540,y:1000,zoom:1},{t:9.0,x:1150,y:650,zoom:0.52,curve:ease.expoInOut},{t:9.8,x:HC[0],y:HC[1]-40,zoom:1.05,curve:ease.expoOut},
+  {t:HOP2[0],x:HC[0],y:HC[1]-40,zoom:1.05},{t:11.5,x:2550,y:800,zoom:0.5,curve:ease.expoInOut},{t:12.45,x:TB.x+TB.w/2,y:TB.y+TB.h/2+60,zoom:1.0,curve:ease.expoOut},
+  {t:END0,x:TB.x+TB.w/2,y:TB.y+TB.h/2+60,zoom:1.0},{t:END0+1.3,x:1850,y:1020,zoom:0.305,curve:ease.quintInOut}];
 const HITS=[[HOLD_H,10,10],[MORPH[0]+0.05,8,11]];
 function camAt(t){ const c=OM.camera(t,KEYS,{W,H}); let x=c.x,y=c.y,rot=0;
-  const hand=sstep(5.3,5.6,t)*(1-sstep(8.4,8.8,t))*5; x+=hand*Math.sin(1.7*t)/c.zoom; y+=hand*Math.sin(1.3*t+2)/c.zoom;
+  const hand=sstep(7.9,8.2,t)*(1-sstep(12.4,12.8,t))*5; x+=hand*Math.sin(1.7*t)/c.zoom; y+=hand*Math.sin(1.3*t+2)/c.zoom;
   for(const [th,amp,decay] of HITS){ const s=OM.shake(t,th,{amp,decay,seed:Math.round(th*100)}); x+=s.x/c.zoom; y+=s.y/c.zoom; rot+=s.rot; }
   return {x,y,zoom:c.zoom,rot}; }
 const M2=m=>`matrix(${m.map(v=>v.toFixed(5)).join(',')})`;
@@ -150,9 +150,9 @@ function seek(t){
     img.style.opacity=sstep(MORPH[0]+0.05,MORPH[0]+0.3,t)+(t>=MORPH[0]?0:0); $('tablet').style.transform=`rotate(${lerp(3,0,ease.expoOut(seg(t,HOP2[1]-0.3,MORPH[1]+0.3))).toFixed(2)}deg)`;
     const v=t>=TAP_T-0.4&&t<TAP_T+0.5; if(v) touch($('ttouch'),$('tripple'),t,TAP_T,TB.pad+590*TS,TB.pad+752*TS); else { $('ttouch').style.opacity=0; $('tripple').style.opacity=0; } }
   // textos
-  { const w=[...$('t1').children]; w.forEach((s,i)=>{ const r=OM.wordRise(t,0.25+i*0.18,{dist:40}); s.style.opacity=r.op; s.style.transform=`translateY(${r.y.toFixed(1)}px) scale(${r.s.toFixed(4)})`; });
-    const o1=OM.liftOut(t,5.4,{dur:0.3,dist:60,blur:0}); $('t1').style.opacity=o1.op; $('t1').style.transform=`translateY(${o1.dy}px)`;
-    [...$('t2').children].forEach((s,i)=>{ const r=OM.wordRise(t,8.35+i*0.18,{dist:40}); s.style.opacity=r.op; s.style.transform=`translateY(${r.y.toFixed(1)}px) scale(${r.s.toFixed(4)})`; });
+  { const w=[...$('t1').children]; w.forEach((s,i)=>{ const r=OM.wordRise(t,0.3+i*0.3,{dist:40}); s.style.opacity=r.op; s.style.transform=`translateY(${r.y.toFixed(1)}px) scale(${r.s.toFixed(4)})`; });
+    const o1=OM.liftOut(t,8.0,{dur:0.3,dist:60,blur:0}); $('t1').style.opacity=o1.op; $('t1').style.transform=`translateY(${o1.dy}px)`;
+    [...$('t2').children].forEach((s,i)=>{ const r=OM.wordRise(t,12.3+i*0.25,{dist:40}); s.style.opacity=r.op; s.style.transform=`translateY(${r.y.toFixed(1)}px) scale(${r.s.toFixed(4)})`; });
     const o2=OM.liftOut(t,END0,{dur:0.3,dist:60,blur:0}); $('t2').style.opacity=o2.op; $('t2').style.transform=`translateY(${o2.dy}px)`;
     [...$('t3').children].forEach((s,i)=>{ const r=OM.wordRise(t,END0+0.75+i*0.16,{dist:50}); s.style.opacity=r.op; s.style.transform=`translateY(${r.y.toFixed(1)}px) scale(${r.s.toFixed(4)})`; });
     [...$('logo').children].forEach((s,i)=>{ const d=OM.letterDrop(t,END0+1.35,i,{dist:90,stagger:0.045}); s.style.opacity=d.op; s.style.transform=`translateY(${(-d.y).toFixed(1)}px) scale(${d.sx.toFixed(4)},${d.sy.toFixed(4)})`; });
@@ -162,10 +162,10 @@ function seek(t){
   return Promise.all(pending);
 }
 window.__motion=(t0,t1)=>{ let d=OM.screenTravel(camAt(t0),camAt(t1),camAt((t0+t1)/2),{W,H}); if(t1>HOP1[0]&&t0<MORPH[1]) d=Math.max(d,140); return d; };
-window.__events=()=>({T:DUR,events:[{t:0.25,kind:'word',pan:0,v:0.5},{t:0.3,kind:'game',dur:3.0,pan:0,v:0.5},{t:TAP_GAME,kind:'tap',pan:0,v:0.5},{t:TAP_MENU,kind:'tap',pan:-0.2,v:0.6},
+window.__events=()=>({T:DUR,events:[{t:0.25,kind:'word',pan:0,v:0.5},{t:0.3,kind:'game',dur:4.0,pan:0,v:0.5},{t:TAP_GAME,kind:'tap',pan:0,v:0.5},{t:TAP_MENU,kind:'tap',pan:-0.2,v:0.6},
   {t:TAP_SLOT,kind:'save',pan:-0.3,v:0.9},{t:CARD0,kind:'pop',pan:-0.2,v:0.8},{t:HOP1[0],kind:'whoosh',dur:HOP1[1]-HOP1[0],pan:0.3,v:0.8},{t:HOLD_H,kind:'land',pan:0,v:1},
-  {t:HOP2[0],kind:'whoosh',dur:HOP2[1]-HOP2[0],pan:0.3,v:0.8},{t:MORPH[0],kind:'land',pan:0,v:0.9},{t:TAP_T,kind:'tap',pan:0,v:0.8},{t:9.3,kind:'game',dur:2.9,pan:0,v:0.5},
-  {t:END0,kind:'whoosh',dur:1.1,pan:0,v:0.7},{t:END0+1.35,kind:'end',pan:0,v:1}]});
+  {t:HOP2[0],kind:'whoosh',dur:HOP2[1]-HOP2[0],pan:0.3,v:0.8},{t:MORPH[0],kind:'land',pan:0,v:0.9},{t:TAP_T,kind:'tap',pan:0,v:0.8},{t:13.9,kind:'game',dur:3.6,pan:0,v:0.5},
+  {t:END0,kind:'whoosh',dur:1.3,pan:0,v:0.7},{t:END0+1.35,kind:'end',pan:0,v:1}]});
 window.__seek=async t=>{ await seek(t); return true; };
 window.__ready=Promise.all([window.LOOK?LOOK.ready:document.fonts.ready, window.FUENTES]).then(()=>{ build(); return Promise.all([...document.images].map(i=>i.decode().catch(()=>{}))); }).then(()=>seek(0));
 const qs=new URLSearchParams(location.search);
