@@ -13,6 +13,7 @@ Juegos retro en el navegador, "tipo Netflix": cada quien elige su perfil, ve las
 - `servidor.py`: API JSON (solo Python estándar + SQLite) en `127.0.0.1:8777`. nginx publica `/gameflix/api/` → `/api/`.
 - `servicio/gameflix.service`: servicio systemd de usuario.
 - `herramientas/servidor_prueba.py`: imita a nginx para probar sin publicar.
+- `herramientas/importar_carpeta.py`: sube de una vez todas las ROMs de una carpeta, con título limpio y carátula de libretro-thumbnails.
 
 ## Comandos
 
@@ -45,6 +46,14 @@ Probar sin tocar los datos reales:
 ```
 GAMEFLIX_PUERTO=18777 GAMEFLIX_BD=/tmp/gf/gameflix.db GAMEFLIX_ROMS=/tmp/gf/roms python3 servidor.py &
 python3 herramientas/servidor_prueba.py 18778 18777    # -> http://127.0.0.1:18778/gameflix/
+```
+
+Subir una carpeta entera de ROMs (sin `--subir` solo muestra qué haría; corre en la máquina, no pide PIN):
+
+```
+herramientas/importar_carpeta.py /media/datos/Games/roms/gba --caratulas                       # ver títulos y carátulas
+herramientas/importar_carpeta.py /media/datos/Games/roms/gba --subir --caratulas --aceptar-parecidas
+herramientas/importar_carpeta.py --solo-caratulas --aceptar-parecidas                          # carátula a los que no tienen
 ```
 
 Respaldo automático: la BD todos los días a las 3:30 a. m. en `/media/datos/Backups/casa/AAAA-MM-DD/`, y las ROMs en `/media/datos/Backups/casa/gameflix-roms/` (proyecto `infra/respaldos`).

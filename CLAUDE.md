@@ -28,6 +28,13 @@ Juegos retro (NES, SNES, GB, GBC, GBA) en el navegador con perfiles tipo Netflix
 - Audio en iOS: Safari calla el audio web cuando el iPhone está en silencio. `jugar.js` pone `navigator.audioSession.type = "playback"` (iOS 17+) y, en iOS más viejos, al primer toque reproduce en bucle un WAV silencioso generado en JS (cambia la sesión a reproducción). Cada toque reanuda el `AudioContext` del emulador si quedó pausado (al volver de otra app). Confirmado por Jams: sin esto, en modo silencio no sonaba.
 - No hacen falta los headers COOP/COEP: estos núcleos no usan hilos (`EJS_threads` apagado).
 
+## Importar carpetas de ROMs (2026-11-03)
+
+- `herramientas/importar_carpeta.py` llama directo a `subir_juego`/`poner_caratula`/`consola_de` de `servidor.py` contra la misma BD (sin API ni PIN; respeta `GAMEFLIX_BD`/`GAMEFLIX_ROMS`). Los repetidos por sha1 se saltan solos.
+- Título: del nombre No-Intro del archivo dentro del zip (quita regiones, `[!]`, numeración `1840 - `, `# GBA`; "X, The - Y" → "The X: Y"; Pokemon → Pokémon) + diccionario `TITULOS` para los que quedan feos. Jams eligió títulos limpios.
+- Carátula: `thumbnails.libretro.com/<sistema>/Named_Boxarts/` (nombres No-Intro, con `&:*?` cambiados por `_`). Primero exacta, luego la misma base en otra región (prefiere USA), luego "parecida" (difflib, solo con `--aceptar-parecidas`) y `CARATULAS` a mano. Se achica a 1000 px. Jams está bien con el recorte central de la caja en la etiqueta.
+- 2026-11-03: se importó `/media/datos/Games/roms/gba` (73 juegos, todos con carátula). Jams pidió dejar solo los USA de los repetidos: se saltaron `Dragonball Z - Supersonic Warriors GBA.zip`, `Final Fantasy - Tactics Advanced GBA.zip` y `The Legend Of Zelda - A Link To The Past (E)(Cezar).zip`. El Emerald Elite Redux se renombró a "Pokémon Emerald Elite Redux". ROMs quedaron en ~880 MB.
+
 ## Pruebas
 
 - Firefox headless no tiene WebGL y EmulatorJS no arranca ahí. Se probó con Playwright + Chromium headless (`chromium-headless-shell`, con `--use-angle=swiftshader --enable-unsafe-swiftshader`), usando el venv de `personal/rm-ecommerce` (`.venv/bin/python`). Para ver el gamepad táctil hay que poner un user agent de Android.
