@@ -1,21 +1,28 @@
 (() => {
   const API = "api/";   // relativo: /gameflix/api/ (nginx -> servicio en 8777)
   const CLAVE_DENTRO = "gameflix.dentro";   // sessionStorage: ya eligió perfil en esta visita
+  const CLAVE_MUNDO = "gameflix.mundo.";    // localStorage + id del perfil: última consola que abrió
   const CONSOLAS = {
     nes: "NES", snes: "Super Nintendo", gb: "Game Boy", gbc: "Game Boy Color", gba: "Game Boy Advance",
   };
+  const CORTOS = { nes: "NES", snes: "SNES", gb: "Game Boy", gbc: "GB Color", gba: "GBA" };
+  const POCOS = 8;   // con menos juegos que esto, el mundo es una sola cuadrícula (sin filas por tipo)
   const AVATARES = ["🎮", "🦖", "🐱", "🐶", "🦊", "🐼", "🐸", "🦄", "🐙", "🐲", "👾", "🤖",
                     "👻", "🚀", "⚽", "🍄", "⭐", "🔥", "🌈", "🍕", "🎸", "🏎️", "🧙", "🥷"];
   const COLORES = ["#e50914", "#2e86ab", "#7fb069", "#a15dd1", "#f2a541", "#d6457b", "#17a398", "#6c757d"];
   const MAX_LADO_CARATULA = 1000;   // px; las más grandes se achican antes de subir
 
   const $ = (id) => document.getElementById(id);
-  const vistas = { perfiles: $("vista-perfiles"), catalogo: $("vista-catalogo"), admin: $("vista-admin") };
+  const vistas = {
+    perfiles: $("vista-perfiles"), consolas: $("vista-consolas"), catalogo: $("vista-catalogo"), admin: $("vista-admin"),
+  };
 
   let perfiles = [];
   let actual = null;      // perfil con sesión en este dispositivo
-  let catalogo = null;    // { perfil, consolas: [...], seguir: [ids] }
+  let catalogo = null;    // { perfil, consolas: [{id, nombre, juegos, sugeridos}], seguir: [ids], generos }
   let juegos = new Map(); // id -> juego (de todas las consolas)
+  let mundo = null;       // consola que se está viendo
+  let filtroGenero = null;
   let editandoJuego = null;
   let editandoPerfil = null;   // null = perfil nuevo
   let elegido = { avatar: AVATARES[0], color: COLORES[0] };
@@ -138,6 +145,18 @@
     try { sessionStorage.removeItem(CLAVE_DENTRO); } catch { /* sin almacenamiento */ }
   }
 
+  function mundoGuardado() {
+    try { return localStorage.getItem(CLAVE_MUNDO + actual.id); } catch { return null; }
+  }
+  function guardarMundo(id) {
+    try { localStorage.setItem(CLAVE_MUNDO + actual.id, id); } catch { /* sin almacenamiento */ }
+  }
+
+  // Para buscar sin que importen mayúsculas ni acentos ("pokemon" encuentra "Pokémon")
+  function normalizar(texto) {
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
   function jugar(juego, ranura) {
     location.href = `jugar.html?j=${juego.id}` + (ranura ? `&estado=${ranura}` : "");
   }
@@ -147,10 +166,23 @@
   function mostrarVista(nombre) {
     for (const [clave, el] of Object.entries(vistas)) el.hidden = clave !== nombre;
     $("barra").hidden = nombre === "perfiles";
+    $("boton-consola").hidden = nombre !== "catalogo";
     cerrarMenu();
     window.scrollTo(0, 0);
+    // El buscador se pega justo debajo de la barra
+    document.documentElement.style.setProperty("--alto-barra", `${$("barra").offsetHeight}px`);
   }
 
+  function consolaActual() {
+    return catalogo && catalogo.consolas.find((c) => c.id === mundo) || null;
+  }
+
+  function conJuegos(id) {
+    return !!catalogo.consolas.find((c) => c.id === id && c.juegos.length);
+  }
+
+  // Rutas: #perfiles, #consolas, #mundo/<consola>, #admin. #catalogo lleva al último mundo del
+  // perfil en este dispositivo (o al selector si todavía no ha elegido).
   async function navegar() {
     mostrarError("");
     const destino = location.hash.slice(1) || "catalogo";
@@ -163,13 +195,37 @@
     dibujarBarra();
     if (destino === "admin" && actual.admin) {
       mostrarVista("admin");
-      await cargarCatalogo();
-      dibujarAdmin();
+      if (await cargarCatalogo()) dibujarAdmin();
       return;
     }
-    if (location.hash !== "#catalogo") history.replaceState(null, "", "#catalogo");
+    if (!(await cargarCatalogo())) return;
+    let id = destino === "consolas" ? null : (destino.match(/^mundo\/(\w+)$/) || [])[1];
+    if (destino !== "consolas" && !(id && conJuegos(id))) {
+      id = mundoGuardado();
+      const disponibles = catalogo.consolas.filter((c) => c.juegos.length);
+      if (!(id && conJuegos(id))) id = disponibles.length === 1 ? disponibles[0].id : null;
+      history.replaceState(null, "", id ? `#mundo/${id}` : "#consolas");
+    }
+    if (!id) {
+      mostrarVista("consolas");
+      dibujarConsolas();
+      return;
+    }
+    if (id !== mundo) {
+      $("buscar").value = "";
+      filtroGenero = null;
+    }
+    mundo = id;
+    guardarMundo(id);
+    dibujarBarra();
     mostrarVista("catalogo");
-    await cargarCatalogo();
+    dibujarMundo();
+  }
+
+  // Después de cambiar algo (editar o borrar un juego) se vuelve a dibujar lo que está a la vista
+  function redibujar() {
+    if (!vistas.consolas.hidden) dibujarConsolas();
+    if (!vistas.catalogo.hidden && consolaActual()) dibujarMundo();
   }
 
   // ---------- Perfiles ----------
@@ -245,6 +301,7 @@
   function dibujarBarra() {
     $("avatar-actual").replaceWith(Object.assign(avatar(actual, "avatar-chico"), { id: "avatar-actual" }));
     $("menu-nombre").textContent = actual.nombre;
+    $("nombre-consola").textContent = mundo ? CORTOS[mundo] : "";
     $("menu-admin").hidden = !actual.admin;
     $("enlace-admin").hidden = !actual.admin;
   }
@@ -276,13 +333,13 @@
       catalogo = await pedir("catalogo");
     } catch (e) {
       mostrarError(e.message);
-      return;
+      return false;
     }
     juegos = new Map();
     for (const c of catalogo.consolas) for (const j of c.juegos) juegos.set(j.id, j);
     actual = catalogo.perfil;
     dibujarBarra();
-    dibujarCatalogo();
+    return true;
   }
 
   function tarjeta(juego) {
@@ -310,37 +367,172 @@
     return seccion;
   }
 
-  function dibujarCatalogo() {
-    const filas = $("filas");
-    filas.replaceChildren();
-    const seguir = catalogo.seguir.map((id) => juegos.get(id)).filter(Boolean);
-    if (seguir.length) filas.append(fila(`Seguir jugando, ${actual.nombre}`, seguir));
-    for (const c of catalogo.consolas) if (c.juegos.length) filas.append(fila(c.nombre, c.juegos));
+  function seccionRejilla(titulo, lista) {
+    const seccion = crear("section", "fila");
+    seccion.append(crear("h2", "", titulo));
+    const rejilla = crear("div", "rejilla");
+    for (const j of lista) rejilla.append(tarjeta(j));
+    seccion.append(rejilla);
+    return seccion;
+  }
 
-    const hay = juegos.size > 0;
-    $("catalogo-vacio").hidden = hay;
+  function cuantos(n) {
+    return `${n} ${n === 1 ? "juego" : "juegos"}`;
+  }
+
+  // Lo que el perfil jugó en esa consola, lo más reciente primero
+  function seguirEn(consola) {
+    return catalogo.seguir.map((id) => juegos.get(id)).filter((j) => j && j.consola === consola);
+  }
+
+  // Tipos de juego de la consola, de más a menos juegos ("Otros" siempre al final)
+  function porGenero(c) {
+    const grupos = new Map();
+    for (const j of c.juegos) {
+      if (!grupos.has(j.genero)) grupos.set(j.genero, []);
+      grupos.get(j.genero).push(j);
+    }
+    return [...grupos].sort((a, b) => (a[0] === "Otros") - (b[0] === "Otros") || b[1].length - a[1].length
+                                      || a[0].localeCompare(b[0], "es"));
+  }
+
+  // ---------- Elegir consola ----------
+
+  function dibujarConsolas() {
+    const lista = $("lista-consolas");
+    lista.replaceChildren();
+    $("consolas-titulo").textContent = `¿A qué jugamos, ${actual.nombre}?`;
+    const disponibles = catalogo.consolas.filter((c) => c.juegos.length);
+    const anterior = mundoGuardado();
+    for (const c of disponibles) {
+      const ultimo = seguirEn(c.id)[0] || null;
+      const enlace = crear("a", `mundo mundo-${c.id}` + (c.id === anterior ? " mundo-anterior" : ""));
+      enlace.href = `#mundo/${c.id}`;
+      const texto = crear("span", "mundo-texto");
+      texto.append(crear("span", "mundo-nombre", c.nombre), crear("span", "mundo-cuenta", cuantos(c.juegos.length)));
+      if (ultimo) texto.append(crear("span", "mundo-ultimo", `Último: ${ultimo.titulo}`));
+      // Muestra de cartuchos: el último que jugó y luego los que tienen carátula
+      const muestra = [];
+      for (const j of [ultimo, ...c.sugeridos.map((id) => juegos.get(id)), ...c.juegos.filter((j) => j.caratula), ...c.juegos]) {
+        if (j && !muestra.includes(j)) muestra.push(j);
+        if (muestra.length === 3) break;
+      }
+      const pila = crear("span", "mundo-cartuchos");
+      pila.setAttribute("aria-hidden", "true");
+      for (const j of muestra.reverse()) pila.append(cartucho(j));
+      enlace.append(texto, pila);
+      lista.append(enlace);
+    }
+    $("catalogo-vacio").hidden = disponibles.length > 0;
     $("catalogo-vacio-admin").hidden = !actual.admin;
     $("catalogo-vacio-texto").textContent = actual.admin
       ? "Sube las primeras ROMs desde Administrar." : "Pídele al admin que suba los primeros.";
-    dibujarDestacado(seguir[0] || null);
   }
 
-  function dibujarDestacado(ultimo) {
+  // ---------- Dentro de una consola ----------
+
+  function dibujarMundo() {
+    const c = consolaActual();
+    vistas.catalogo.dataset.consola = c.id;
+    $("buscar").placeholder = `Buscar en ${c.nombre}`;
+    const filas = $("filas");
+    filas.replaceChildren();
+    const seguir = seguirEn(c.id).slice(0, 10);
+    if (seguir.length) filas.append(fila(`Seguir jugando, ${actual.nombre}`, seguir));
+    const sugeridos = c.sugeridos.map((id) => juegos.get(id)).filter(Boolean);
+    if (sugeridos.length && c.juegos.length >= POCOS) filas.append(fila("Te podría gustar", sugeridos));
+    const grupos = porGenero(c);
+    const pocos = c.juegos.length < POCOS || grupos.length < 2;
+    $("buscador").hidden = c.juegos.length < POCOS;
+    if (pocos) {
+      filas.append(seccionRejilla("Todos los juegos", c.juegos));
+    } else {
+      // Los tipos con un solo juego van juntos al final (los chips sí los muestran por separado)
+      const sueltos = [];
+      for (const [genero, lista] of grupos) {
+        if (lista.length > 1 && genero !== "Otros") filas.append(fila(genero, lista));
+        else sueltos.push(...lista);
+      }
+      if (sueltos.length) {
+        sueltos.sort((a, b) => a.titulo.localeCompare(b.titulo, "es"));
+        filas.append(fila("Más juegos", sueltos));
+      }
+    }
+    dibujarChips(grupos, c.juegos.length);
+    dibujarDestacado(c, seguir[0] || null, sugeridos[0] || null);
+    aplicarFiltro();
+  }
+
+  function dibujarChips(grupos, total) {
+    const chips = $("chips");
+    chips.replaceChildren();
+    chips.hidden = total < POCOS || grupos.length < 2;
+    if (filtroGenero && !grupos.some(([g]) => g === filtroGenero)) filtroGenero = null;
+    const opciones = [[null, "Todos", total], ...grupos.map(([g, lista]) => [g, g, lista.length])];
+    for (const [valor, nombre, n] of opciones) {
+      const chip = crear("button", "chip");
+      chip.type = "button";
+      chip.dataset.genero = valor || "";
+      chip.append(nombre, crear("small", "", String(n)));
+      chip.addEventListener("click", () => {
+        filtroGenero = valor === filtroGenero ? null : valor;
+        aplicarFiltro();
+        if (filtroGenero || $("buscar").value.trim()) $("buscador").scrollIntoView({ block: "start" });
+      });
+      chips.append(chip);
+    }
+  }
+
+  // Con algo escrito o un tipo elegido, las filas se cambian por una cuadrícula con lo que coincide
+  function aplicarFiltro() {
+    const c = consolaActual();
+    if (!c) return;
+    const texto = normalizar($("buscar").value.trim());
+    const activo = !!(texto || filtroGenero);
+    for (const chip of $("chips").children) {
+      chip.setAttribute("aria-pressed", String((chip.dataset.genero || null) === filtroGenero));
+    }
+    $("filas").hidden = activo;
+    $("destacado").hidden = activo || !c.juegos.length;
+    $("resultados").hidden = !activo;
+    if (!activo) return;
+    const palabras = texto.split(/\s+/).filter(Boolean);
+    const lista = c.juegos.filter((j) => (!filtroGenero || j.genero === filtroGenero)
+      && palabras.every((p) => normalizar(`${j.titulo} ${j.genero}`).includes(p)));
+    $("resultados-titulo").textContent = `${filtroGenero || "Resultados"} · ${cuantos(lista.length)}`;
+    const rejilla = $("rejilla");
+    rejilla.replaceChildren(...lista.map(tarjeta));
+    $("sin-resultados").hidden = lista.length > 0;
+    $("sin-resultados").textContent = texto
+      ? `No hay juegos que digan "${$("buscar").value.trim()}"${filtroGenero ? ` en ${filtroGenero}` : ""}.`
+      : "No hay juegos de ese tipo.";
+  }
+
+  $("buscar").addEventListener("input", aplicarFiltro);
+
+  // La barra es transparente abajo para que el destacado se vea detrás; al bajar se vuelve sólida
+  // para que no se vean los juegos entre la barra y el buscador
+  window.addEventListener("scroll", () => {
+    $("barra").classList.toggle("barra-solida", window.scrollY > 40);
+  }, { passive: true });
+  $("buscar").addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { $("buscar").value = ""; aplicarFiltro(); }
+    if (e.key === "Enter") $("buscar").blur();   // en el celular, cierra el teclado para ver los resultados
+  });
+
+  function dibujarDestacado(c, ultimo, sugerido) {
     const destacado = $("destacado");
     destacado.replaceChildren();
-    const todos = [...juegos.values()];
-    if (!todos.length) {
-      destacado.hidden = true;
-      return;
-    }
-    destacado.hidden = false;
-    // Lo último que jugó este perfil; si no ha jugado nada, uno al azar para animarlo
-    const juego = ultimo || todos[Math.floor(Math.random() * todos.length)];
+    if (!c.juegos.length) return;
+    // Lo último que jugó en esta consola; si no, una sugerencia; si no, uno al azar para animarlo
+    const juego = ultimo || sugerido || c.juegos[Math.floor(Math.random() * c.juegos.length)];
     const texto = crear("div", "destacado-texto");
+    const meta = [juego.genero !== "Otros" ? juego.genero : CONSOLAS[juego.consola]];
+    if (juego.con_save) meta.push("tienes partida guardada");
     texto.append(
-      crear("span", "destacado-etiqueta", ultimo ? "Seguir jugando" : "Prueba este"),
+      crear("span", "destacado-etiqueta", ultimo ? "Seguir jugando" : sugerido ? "Te podría gustar" : "Prueba este"),
       crear("h2", "", juego.titulo),
-      crear("p", "destacado-meta", CONSOLAS[juego.consola] + (juego.con_save ? " · tienes partida guardada" : "")),
+      crear("p", "destacado-meta", meta.join(" · ")),
     );
     const botones = crear("div", "destacado-botones");
     const jugarBoton = crear("button", "boton boton-claro", ultimo ? "▶ Continuar" : "▶ Jugar");
@@ -375,7 +567,8 @@
     const cuerpo = crear("div", "detalle-cuerpo");
     const titulo = crear("div");
     titulo.append(crear("h2", "", juego.titulo),
-                  crear("p", "detalle-meta", `${datos.juego.consola_nombre} · ${tamano(juego.tamano)}`));
+                  crear("p", "detalle-meta", [datos.juego.consola_nombre, juego.genero !== "Otros" && juego.genero,
+                                              tamano(juego.tamano)].filter(Boolean).join(" · ")));
 
     const botones = crear("div", "detalle-botones");
     const jugarBoton = crear("button", "boton boton-principal", datos.save ? "▶ Continuar" : "▶ Jugar");
@@ -515,8 +708,7 @@
     const archivos = [...e.target.files];
     e.target.value = "";
     for (const archivo of archivos) await subirRom(archivo);   // de una en una
-    await cargarCatalogo();
-    dibujarAdmin();
+    if (await cargarCatalogo()) dibujarAdmin();
   });
 
   function subirRom(archivo) {
@@ -564,6 +756,11 @@
     const gameboy = juego.consola === "gb" || juego.consola === "gbc";
     $("campo-consola").hidden = !gameboy;
     if (gameboy) $("juego-consola").value = juego.consola;
+    const generos = $("juego-genero");
+    if (!generos.options.length) {
+      for (const g of catalogo.generos) generos.append(Object.assign(crear("option", "", g), { value: g }));
+    }
+    generos.value = juego.genero || "Otros";
     $("quitar-caratula").hidden = !juego.caratula;
     $("juego-vista").replaceChildren(cartucho(juego));
     errorEn("juego-error", "");
@@ -575,13 +772,14 @@
     juegos.set(juego.id, { ...juegos.get(juego.id), ...juego });
     $("quitar-caratula").hidden = !editandoJuego.caratula;
     $("juego-vista").replaceChildren(cartucho(editandoJuego));
-    await cargarCatalogo();
+    if (!(await cargarCatalogo())) return;
     if (location.hash === "#admin") dibujarAdmin();
+    else redibujar();
   }
 
   $("form-juego").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const cambios = { titulo: $("juego-titulo").value };
+    const cambios = { titulo: $("juego-titulo").value, genero: $("juego-genero").value };
     if (!$("campo-consola").hidden) cambios.consola = $("juego-consola").value;
     try {
       await refrescarJuego(await pedir(`admin/juegos/${editandoJuego.id}`, { method: "PATCH", body: cambios }));
@@ -619,8 +817,9 @@
       await pedir(`admin/juegos/${editandoJuego.id}`, { method: "DELETE" });
       $("dialogo-editar-juego").close();
       avisar("Juego borrado");
-      await cargarCatalogo();
+      if (!(await cargarCatalogo())) return;
       if (location.hash === "#admin") dibujarAdmin();
+      else redibujar();
     } catch (err) {
       errorEn("juego-error", err.message);
     }

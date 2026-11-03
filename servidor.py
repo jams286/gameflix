@@ -20,6 +20,7 @@ Rutas:
     GET    /api/catalogo                         consolas con sus juegos y "seguir jugando"
     GET    /api/juegos/<id>                      juego + estado de su save y sus ranuras
     GET    /api/juegos/<id>/rom/<nombre>         la ROM (el nombre solo importa a EmulatorJS)
+    POST   /api/juegos/<id>/tiempo               {"segundos"} jugados desde el último aviso (para sugerir)
     GET    /api/juegos/<id>/caratula             imagen
     GET    /api/juegos/<id>/save                 último save del perfil (204 si no hay)
     PUT    /api/juegos/<id>/save                 cuerpo: bytes del save
@@ -30,7 +31,7 @@ Rutas:
     PUT    /api/juegos/<id>/estados/<n>          cuerpo: largo de la captura (4 bytes) + captura + estado
     DELETE /api/juegos/<id>/estados/<n>
     POST   /api/admin/juegos?nombre=&consola=&titulo=   cuerpo: la ROM (o un .zip con ella)
-    PATCH  /api/admin/juegos/<id>                {"titulo"?, "consola"?}
+    PATCH  /api/admin/juegos/<id>                {"titulo"?, "consola"?, "genero"?}
     DELETE /api/admin/juegos/<id>
     PUT    /api/admin/juegos/<id>/caratula       cuerpo: imagen JPEG, PNG o WebP
     DELETE /api/admin/juegos/<id>/caratula
@@ -85,6 +86,13 @@ CONSOLAS = {  # en el orden en que salen en la app
 EXTENSIONES = {ext: c for c, info in CONSOLAS.items() for ext in info['ext']}
 TIPOS_IMAGEN = {b'\xff\xd8\xff': 'image/jpeg', b'\x89PNG': 'image/png', b'RIFF': 'image/webp'}
 COLORES = ['#e50914', '#2e86ab', '#7fb069', '#a15dd1', '#f2a541', '#d6457b', '#17a398', '#6c757d']
+# Categorías de juego (en este orden salen en el admin). Se llenan solas con datos/generos.json
+# (libretro-database por CRC32, ver herramientas/generos_libretro.py); sin dato, "Otros".
+GENEROS = ['Acción', 'Aventura', 'Plataformas', 'RPG', 'Estrategia', 'Simulación', 'Puzzle', 'Peleas',
+           'Disparos', 'Carreras', 'Deportes', 'Cartas y mesa', 'Casual', 'Otros']
+ARCHIVO_GENEROS = Path(__file__).resolve().parent / 'datos' / 'generos.json'
+MAX_TIEMPO = 180                  # segundos que cuenta un aviso de tiempo jugado (llegan cada minuto)
+SUGERIDOS = 10
 PERFILES_INICIALES = [('Jams', '🎮', '#e50914', 1), ('Victor', '🦖', '#2e86ab', 0)]
 
 candado = threading.Lock()   # una escritura a la vez
@@ -170,10 +178,42 @@ def preparar_bd():
                 PRIMARY KEY (perfil_id, juego_id)
             );
         ''')
+        migrar(con)
         if not con.execute('SELECT 1 FROM perfiles').fetchone():
             for nombre, avatar, color, admin in PERFILES_INICIALES:
                 con.execute('INSERT INTO perfiles (nombre, avatar, color, admin, creado) VALUES (?, ?, ?, ?, ?)',
                             (nombre, avatar, color, admin, ahora()))
+
+
+def cargar_generos():
+    """{(consola, crc32): categoría} desde datos/generos.json (vacío si no está)."""
+    try:
+        datos = json.loads(ARCHIVO_GENEROS.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    return {(consola, crc): categoria
+            for consola, categorias in datos.items()
+            for categoria, crcs in categorias.items() for crc in crcs}
+
+
+GENERO_POR_CRC = cargar_generos()
+
+
+def genero_de(consola, crc):
+    # GB y GBC comparten juegos (los duales están en las dos listas de libretro)
+    otras = {'gb': 'gbc', 'gbc': 'gb'}
+    return GENERO_POR_CRC.get((consola, crc)) or GENERO_POR_CRC.get((otras.get(consola), crc))
+
+
+def migrar(con):
+    """Columnas que se agregaron después de la v1."""
+    columnas = {f[1] for f in con.execute('PRAGMA table_info(juegos)')}
+    if 'genero' not in columnas:
+        con.execute('ALTER TABLE juegos ADD COLUMN genero TEXT')   # NULL = sin dato ("Otros")
+        for f in con.execute('SELECT id, consola, crc32 FROM juegos').fetchall():
+            con.execute('UPDATE juegos SET genero = ? WHERE id = ?', (genero_de(f[1], f[2]), f[0]))
+    if 'segundos' not in {f[1] for f in con.execute('PRAGMA table_info(jugados)')}:
+        con.execute('ALTER TABLE jugados ADD COLUMN segundos INTEGER NOT NULL DEFAULT 0')
 
 
 def ahora():
@@ -299,7 +339,7 @@ def borrar_perfil(perfil_id, yo):
 
 def juego_publico(f):
     return {'id': f['id'], 'consola': f['consola'], 'titulo': f['titulo'], 'tamano': f['tamano'],
-            'ext': Path(f['archivo']).suffix,
+            'ext': Path(f['archivo']).suffix, 'genero': f['genero'] or 'Otros',
             'caratula': f['caratula_version'] if f['caratula_tipo'] else None}
 
 
@@ -313,10 +353,65 @@ def leer_catalogo(con, perfil):
     consolas = []
     for clave, info in CONSOLAS.items():
         lista = [dict(juego_publico(f), con_save=bool(f['con_save'])) for f in juegos if f['consola'] == clave]
-        consolas.append({'id': clave, 'nombre': info['nombre'], 'juegos': lista})
+        consolas.append({'id': clave, 'nombre': info['nombre'], 'juegos': lista,
+                         'sugeridos': sugerir(con, perfil, juegos, clave)})
+    # Todo lo jugado, lo más reciente primero (la app lo separa por consola)
     seguir = [f['id'] for f in sorted((f for f in juegos if f['ultima_vez']),
-                                       key=lambda f: f['ultima_vez'], reverse=True)][:10]
-    return {'perfil': perfil_publico(perfil), 'consolas': consolas, 'seguir': seguir}
+                                       key=lambda f: f['ultima_vez'], reverse=True)]
+    return {'perfil': perfil_publico(perfil), 'consolas': consolas, 'seguir': seguir, 'generos': GENEROS}
+
+
+def sugerir(con, perfil, juegos, consola):
+    """Hasta SUGERIDOS juegos de la consola que el perfil no ha abierto, según cuánto juega cada
+    género (lo de la misma consola pesa el doble) y, de desempate, lo que juega el resto de la casa."""
+    jugado = {}   # juego_id -> "peso" de lo que lo ha jugado el perfil
+    familia = {}  # juego_id -> lo mismo, pero de los demás perfiles
+    for f in con.execute('SELECT perfil_id, juego_id, veces, segundos FROM jugados'):
+        peso = f['segundos'] + 120 * f['veces']   # abrirlo cuenta aunque no haya tiempo registrado
+        destino = jugado if f['perfil_id'] == perfil['id'] else familia
+        destino[f['juego_id']] = destino.get(f['juego_id'], 0) + peso
+    por_id = {f['id']: f for f in juegos}
+    afinidad = {}
+    for juego_id, peso in jugado.items():
+        f = por_id.get(juego_id)
+        if f:
+            genero = f['genero'] or 'Otros'
+            # "Otros" es un cajón de sastre: dice poco de lo que le gusta
+            peso *= (2 if f['consola'] == consola else 1) * (0.3 if genero == 'Otros' else 1)
+            afinidad[genero] = afinidad.get(genero, 0) + peso
+    tope_afinidad = max(afinidad.values(), default=0) or 1
+    tope_familia = max(familia.values(), default=0) or 1
+    dia = datetime.now().strftime('%Y%m%d')   # para que el orden de los empates cambie cada día
+    candidatos = []
+    for f in juegos:
+        if f['consola'] != consola or f['id'] in jugado:
+            continue
+        puntos = afinidad.get(f['genero'] or 'Otros', 0) / tope_afinidad + 0.3 * familia.get(f['id'], 0) / tope_familia
+        if puntos > 0:
+            azar = hashlib.sha1(f'{dia}-{perfil["id"]}-{f["id"]}'.encode()).hexdigest()
+            candidatos.append((-puntos, azar, f['id'], f['genero'] or 'Otros'))
+    # Que no salgan todos del mismo género: primero hasta la mitad de cada uno, luego el resto
+    elegidos, por_genero = [], {}
+    for _, _, juego_id, genero in sorted(candidatos):
+        if por_genero.get(genero, 0) < SUGERIDOS // 2:
+            elegidos.append(juego_id)
+            por_genero[genero] = por_genero.get(genero, 0) + 1
+    resto = [c[2] for c in sorted(candidatos) if c[2] not in elegidos]
+    return (elegidos + resto)[:SUGERIDOS]
+
+
+def sumar_tiempo(perfil, juego_id, datos):
+    segundos = datos.get('segundos')
+    if not isinstance(segundos, (int, float)) or segundos <= 0:
+        raise ValueError('Segundos inválidos')
+    segundos = int(min(segundos, MAX_TIEMPO))
+    with candado, conectar() as con:
+        exigir_juego(con, juego_id)
+        con.execute('''INSERT INTO jugados (perfil_id, juego_id, ultima_vez, segundos) VALUES (?, ?, ?, ?)
+                       ON CONFLICT DO UPDATE SET ultima_vez = excluded.ultima_vez,
+                                                 segundos = segundos + excluded.segundos''',
+                    (perfil['id'], juego_id, ahora(), segundos))
+    return {'ok': True}
 
 
 def leer_juego(con, perfil, juego_id):
@@ -400,9 +495,10 @@ def subir_juego(consulta, datos):
         temporal = ROMS / (archivo + '.tmp')
         temporal.write_bytes(datos)
         temporal.replace(ROMS / archivo)
-        cur = con.execute('''INSERT INTO juegos (consola, titulo, archivo, sha1, crc32, tamano, creado)
-                             VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                          (consola, titulo, archivo, sha1, f'{zlib.crc32(datos):08x}', len(datos), ahora()))
+        crc = f'{zlib.crc32(datos):08x}'
+        cur = con.execute('''INSERT INTO juegos (consola, titulo, archivo, sha1, crc32, tamano, creado, genero)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                          (consola, titulo, archivo, sha1, crc, len(datos), ahora(), genero_de(consola, crc)))
         return juego_publico(con.execute('SELECT * FROM juegos WHERE id = ?', (cur.lastrowid,)).fetchone())
 
 
@@ -417,6 +513,10 @@ def cambiar_juego(juego_id, datos):
         if datos['consola'] not in CONSOLAS:
             raise ValueError('Consola inválida')
         cambios['consola'] = datos['consola']
+    if 'genero' in datos:
+        if datos['genero'] not in GENEROS:
+            raise ValueError('Categoría inválida')
+        cambios['genero'] = datos['genero']
     if not cambios:
         raise ValueError('Nada que cambiar')
     with candado, conectar() as con:
@@ -581,6 +681,7 @@ RUTAS = [
     ('GET',    r'/api/catalogo', 'perfil', None, lambda m, d, p, c, q: leer_catalogo(c, p)),
     ('GET',    r'/api/juegos/(\d+)', 'perfil', None, lambda m, d, p, c, q: leer_juego(c, p, int(m[1]))),
     ('GET',    r'/api/juegos/(\d+)/rom/[^/]+', 'perfil', None, None),   # archivo, se atiende aparte
+    ('POST',   r'/api/juegos/(\d+)/tiempo', 'perfil', 'json', lambda m, d, p, c, q: sumar_tiempo(p, int(m[1]), d)),
     ('GET',    r'/api/juegos/(\d+)/caratula', 'perfil', None, lambda m, d, p, c, q: caratula(c, int(m[1]))),
     ('GET',    r'/api/juegos/(\d+)/save', 'perfil', None, lambda m, d, p, c, q: ultimo_save(c, p, int(m[1]))),
     ('PUT',    r'/api/juegos/(\d+)/save', 'perfil', MAX_SAVE, lambda m, d, p, c, q: guardar_save(p, int(m[1]), d)),

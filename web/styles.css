@@ -199,6 +199,8 @@ h1, h2, h3 { margin: 0; }
 .barra-enlace { color: var(--tinta-suave); text-decoration: none; font-size: 0.95rem; }
 .barra-enlace:hover { color: var(--tinta); }
 .barra-perfil { padding: 0; border: 0; background: none; display: flex; }
+.barra { transition: background-color 0.2s; }
+.barra-solida { background: var(--fondo); }
 
 .menu-perfil {
   position: absolute;
@@ -698,6 +700,184 @@ h1, h2, h3 { margin: 0; }
   font-weight: 700;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
+
+/* ---------- Consolas ("mundos") ---------- */
+
+.barra-izquierda { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.barra-consola {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.barra-consola:hover { border-color: var(--tinta-suave); }
+.barra-consola-icono { color: var(--tinta-suave); }
+@media (max-width: 480px) {
+  .barra-enlace { display: none; }   /* "Administrar" sigue en el menú del perfil */
+}
+
+.vista-consolas { max-width: 1040px; margin: 0 auto; padding: 8px var(--margen) 60px; }
+.vista-consolas h1 { margin: 8px 0 18px; font-size: clamp(1.5rem, 6vw, 2.4rem); font-weight: 400; }
+
+.mundos { display: grid; gap: 14px; }
+@media (min-width: 720px) {
+  .mundos { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+}
+
+.mundo {
+  --color-mundo: #444;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 128px;
+  padding: 16px 16px 16px 20px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 85% 50%, rgba(255, 255, 255, 0.16), transparent 60%),
+    linear-gradient(135deg, var(--color-mundo), #15151c 88%);
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.mundo:hover, .mundo:focus-visible { border-color: #fff; transform: translateY(-2px); outline: none; }
+.mundo-nes { --color-mundo: var(--nes-etiqueta); }
+.mundo-snes { --color-mundo: var(--snes-etiqueta); }
+.mundo-gb { --color-mundo: var(--gb-etiqueta); }
+.mundo-gbc { --color-mundo: var(--gbc-etiqueta); }
+.mundo-gba { --color-mundo: var(--gba-etiqueta); }
+
+.mundo-texto { display: grid; gap: 4px; min-width: 0; }
+.mundo-nombre {
+  font-family: var(--fuente-logo);
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.mundo-cuenta { font-weight: 700; color: rgba(255, 255, 255, 0.85); }
+.mundo-ultimo {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Abanico de cartuchos a la derecha de cada consola */
+.mundo-cartuchos { display: flex; align-items: center; padding-right: 6px; }
+.mundo-cartuchos .cartucho { --alto: 84px; }
+.mundo-cartuchos .cartucho-caja + .cartucho-caja { margin-left: -40px; }
+.mundo-cartuchos .cartucho-caja:nth-child(1) { transform: rotate(-9deg) translateY(4px); }
+.mundo-cartuchos .cartucho-caja:nth-child(3) { transform: rotate(8deg) translateY(2px); }
+.mundo-gba .mundo-cartuchos .cartucho { --alto: 64px; }
+.mundo-gba .mundo-cartuchos .cartucho-caja + .cartucho-caja { margin-left: -66px; }
+.mundo-snes .mundo-cartuchos .cartucho-caja + .cartucho-caja { margin-left: -52px; }
+@media (min-width: 720px) {
+  .mundo { min-height: 180px; }
+  .mundo-cartuchos .cartucho { --alto: 104px; }
+  .mundo-gba .mundo-cartuchos .cartucho { --alto: 80px; }
+  .mundo-cartuchos .cartucho-caja + .cartucho-caja { margin-left: -50px; }
+  .mundo-gba .mundo-cartuchos .cartucho-caja + .cartucho-caja { margin-left: -80px; }
+}
+
+/* ---------- Buscador y tipos de juego ---------- */
+
+.buscador {
+  position: sticky;
+  top: var(--alto-barra, 56px);
+  z-index: 9;
+  display: grid;
+  gap: 10px;
+  padding: 6px var(--margen) 10px;
+  background: var(--fondo);
+}
+.buscador-caja {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+.buscador-caja:focus-within { border-color: var(--tinta-suave); }
+.buscador-caja input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  font-size: 1rem;   /* 16 px: así iOS no hace zoom al escribir */
+  outline: none;
+}
+@media (min-width: 720px) {
+  .buscador { grid-template-columns: minmax(260px, 380px) 1fr; align-items: center; }
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tinta-suave);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip small { font-size: 0.75rem; opacity: 0.7; }
+.chip:hover { color: var(--tinta); border-color: var(--tinta-suave); }
+.chip[aria-pressed="true"] { background: var(--tinta); border-color: var(--tinta); color: #111; font-weight: 700; }
+
+/* ---------- Cuadrícula (resultados y consolas con pocos juegos) ---------- */
+
+.vista-catalogo { --alto-rejilla: 118px; --proporcion-rejilla: 0.9; }
+.vista-catalogo[data-consola="snes"] { --alto-rejilla: 100px; --proporcion-rejilla: 1.12; }
+.vista-catalogo[data-consola="gb"], .vista-catalogo[data-consola="gbc"] { --alto-rejilla: 122px; --proporcion-rejilla: 0.87; }
+.vista-catalogo[data-consola="gba"] { --alto-rejilla: 94px; --proporcion-rejilla: 1.55; }
+@media (min-width: 720px) {
+  .vista-catalogo { --alto-rejilla: 150px; }
+  .vista-catalogo[data-consola="snes"] { --alto-rejilla: 130px; }
+  .vista-catalogo[data-consola="gb"], .vista-catalogo[data-consola="gbc"] { --alto-rejilla: 150px; }
+  .vista-catalogo[data-consola="gba"] { --alto-rejilla: 120px; }
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--alto-rejilla) * var(--proporcion-rejilla)), 1fr));
+  gap: 18px 12px;
+  padding: 8px var(--margen) 12px;
+}
+.rejilla .juego { min-width: 0; justify-items: center; }
+.rejilla .juego .cartucho { --alto: var(--alto-rejilla); }
+.rejilla .juego-titulo { max-width: 100%; text-align: center; }
+
+.resultados { margin: 6px 0 40px; }
+.resultados h2 { margin: 0 var(--margen) 8px; font-size: 1.15rem; }
+.sin-resultados { margin: 24px var(--margen); color: var(--tinta-suave); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

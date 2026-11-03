@@ -1,6 +1,6 @@
 # gameflix
 
-Juegos retro en el navegador, "tipo Netflix": cada quien elige su perfil, ve las consolas en filas con sus cartuchos y juega desde el celular, la tablet o la compu. La partida de cada perfil se guarda en el servidor, así que se puede empezar en un dispositivo y seguir en otro.
+Juegos retro en el navegador, "tipo Netflix": cada quien elige su perfil, entra a una consola (cada una es un "mundo" con su buscador, sus juegos agrupados por tipo y sugerencias según lo que juega) y juega desde el celular, la tablet o la compu. La partida de cada perfil se guarda en el servidor, así que se puede empezar en un dispositivo y seguir en otro.
 
 - Página: https://192.168.1.4/gameflix/
 - Consolas: NES, Super Nintendo, Game Boy, Game Boy Color y Game Boy Advance (emuladas con [EmulatorJS](https://emulatorjs.org) 4.2.3 y sus núcleos de libretro).
@@ -13,6 +13,7 @@ Juegos retro en el navegador, "tipo Netflix": cada quien elige su perfil, ve las
 - `servidor.py`: API JSON (solo Python estándar + SQLite) en `127.0.0.1:8777`. nginx publica `/gameflix/api/` → `/api/`.
 - `servicio/gameflix.service`: servicio systemd de usuario.
 - `herramientas/servidor_prueba.py`: imita a nginx para probar sin publicar.
+- `herramientas/generos_libretro.py`: arma `datos/generos.json` (tipo de juego por CRC32, de [libretro-database](https://github.com/libretro/libretro-database), `metadat/genre`). Solo hace falta correrlo para actualizar esos datos.
 - `herramientas/importar_carpeta.py`: sube de una vez todas las ROMs de una carpeta, con título limpio y carátula de libretro-thumbnails.
 
 ## Comandos

@@ -6,11 +6,16 @@
 // juega se revisa cada pocos segundos y se sube cuando cambia (y al salir o cambiar de app).
 //
 // Estados: los botones de guardar/cargar estado del menú de EmulatorJS abren nuestras ranuras.
+//
+// Tiempo jugado: mientras el juego corre a la vista (sin pausa) se cuentan los segundos y se
+// avisan al servidor cada minuto; solo sirve para sugerir juegos, no se muestra en ningún lado.
 (() => {
   const API = "api/";
   const DATOS_EMULADOR = "emulatorjs/";
   const CADA_CUANTO_MS = 10000;     // revisión del save mientras se juega
   const MAX_KEEPALIVE = 60000;      // los navegadores no dejan más en un fetch "keepalive"
+  const TICK_TIEMPO_MS = 5000;      // cada cuánto se revisa si el juego está corriendo
+  const AVISO_TIEMPO_S = 60;        // cada cuántos segundos jugados se avisan al servidor
 
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
@@ -25,6 +30,7 @@
   let eligioRanura = false;
   let temporizadorAviso = 0;
   let pausadoPorMi = false;
+  let segundosSinAvisar = 0;
 
   // ---------- Utilidades ----------
 
@@ -261,6 +267,25 @@
   $("ranuras-cancelar").addEventListener("click", () => $("dialogo-ranuras").close());
   $("dialogo-ranuras").addEventListener("close", () => { if (!eligioRanura) reanudar(); });
 
+  // ---------- Tiempo jugado ----------
+
+  function contarTiempo() {
+    const ejs = window.EJS_emulator;
+    if (document.visibilityState === "visible" && ejs && ejs.started && !ejs.paused) {
+      segundosSinAvisar += TICK_TIEMPO_MS / 1000;
+    }
+    if (segundosSinAvisar >= AVISO_TIEMPO_S) avisarTiempo(false);
+  }
+
+  function avisarTiempo(keepalive) {
+    const segundos = Math.round(segundosSinAvisar);
+    if (segundos < 5) return Promise.resolve();
+    segundosSinAvisar = 0;
+    return pedir(`juegos/${juegoId}/tiempo`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ segundos }), keepalive,
+    }).catch(() => { /* no es grave: solo se pierde ese minuto para las sugerencias */ });
+  }
+
   // ---------- EmulatorJS ----------
 
   async function alArrancar() {
@@ -274,6 +299,7 @@
     if (ranuraInicial) await cargarEstado(ranuraInicial);
     ejs.on("saveSaveFiles", (bytes) => { if (bytes) subirSave(bytes); });
     setInterval(revisarSave, CADA_CUANTO_MS);
+    setInterval(contarTiempo, TICK_TIEMPO_MS);
   }
 
   function arrancarEmulador() {
@@ -356,8 +382,8 @@
     $("salir").disabled = true;
     marcarSync("subiendo", "Guardando…");
     revisarSave();   // el evento llega al tiro y deja la subida en la cola
-    await cola;
-    location.href = "./#catalogo";
+    await Promise.all([cola, avisarTiempo(false)]);
+    location.href = juego ? `./#mundo/${juego.consola}` : "./#catalogo";
   }
 
   $("salir").addEventListener("click", salir);
@@ -365,7 +391,10 @@
   // Al cambiar de app o apagar la pantalla en el celular puede que no se vuelva: se guarda ya
   document.addEventListener("visibilitychange", () => {
     saliendo = document.visibilityState === "hidden";
-    if (saliendo) revisarSave();
+    if (saliendo) {
+      revisarSave();
+      avisarTiempo(true);
+    }
   });
 
   // ---------- Arranque ----------

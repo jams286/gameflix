@@ -16,7 +16,12 @@
 </head>
 <body>
   <header class="barra" id="barra" hidden>
-    <a class="logo" href="#catalogo">Gameflix</a>
+    <div class="barra-izquierda">
+      <a class="logo" href="#catalogo">Gameflix</a>
+      <a class="barra-consola" id="boton-consola" href="#consolas" hidden aria-label="Cambiar de consola">
+        <span id="nombre-consola"></span><span class="barra-consola-icono" aria-hidden="true">⇄</span>
+      </a>
+    </div>
     <nav class="barra-acciones">
       <a class="barra-enlace" id="enlace-admin" href="#admin" hidden>Administrar</a>
       <button type="button" class="barra-perfil" id="boton-perfil" aria-haspopup="true" aria-expanded="false">
@@ -25,6 +30,7 @@
     </nav>
     <div class="menu-perfil" id="menu-perfil" hidden>
       <p class="menu-nombre" id="menu-nombre"></p>
+      <a href="#consolas">Cambiar de consola</a>
       <a href="#admin" id="menu-admin" hidden>Administrar Gameflix</a>
       <button type="button" id="cambiar-perfil">Cambiar de perfil</button>
     </div>
@@ -39,15 +45,33 @@
     <div class="perfiles" id="lista-perfiles"></div>
   </section>
 
-  <!-- Catálogo del perfil -->
-  <main class="vista vista-catalogo" id="vista-catalogo" hidden>
-    <section class="destacado" id="destacado"></section>
-    <div id="filas"></div>
+  <!-- Elegir consola ("mundos") -->
+  <main class="vista vista-consolas" id="vista-consolas" hidden>
+    <h1 id="consolas-titulo">¿A qué jugamos?</h1>
+    <div class="mundos" id="lista-consolas"></div>
     <section class="vacio-catalogo" id="catalogo-vacio" hidden>
       <p class="vacio-icono" aria-hidden="true">🕹️</p>
       <h2>Todavía no hay juegos</h2>
       <p id="catalogo-vacio-texto">Pídele al admin que suba los primeros.</p>
       <a class="boton boton-principal" href="#admin" id="catalogo-vacio-admin" hidden>Subir juegos</a>
+    </section>
+  </main>
+
+  <!-- Una consola: sus juegos -->
+  <main class="vista vista-catalogo" id="vista-catalogo" hidden>
+    <section class="destacado" id="destacado"></section>
+    <div class="buscador" id="buscador">
+      <label class="buscador-caja">
+        <span aria-hidden="true">🔍</span>
+        <input type="search" id="buscar" autocomplete="off" enterkeyhint="search" placeholder="Buscar">
+      </label>
+      <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo de juego"></div>
+    </div>
+    <div id="filas"></div>
+    <section class="resultados" id="resultados" hidden>
+      <h2 id="resultados-titulo"></h2>
+      <div class="rejilla" id="rejilla"></div>
+      <p class="sin-resultados" id="sin-resultados" hidden>No hay juegos con ese nombre.</p>
     </section>
   </main>
 
@@ -112,6 +136,9 @@
           <option value="gb">Game Boy</option>
           <option value="gbc">Game Boy Color</option>
         </select>
+      </label>
+      <label class="campo">Tipo de juego
+        <select id="juego-genero"></select>
       </label>
       <div class="campo">Carátula
         <div class="caratula-editar">
